@@ -4,6 +4,12 @@ import urllib.error
 from itertools import islice
 
 BRNUM = 0
+NAME = 2
+SECTOR = 7
+COUNTRY = 8
+DATE_ADDED = 11
+TITLE = 12
+PUBLICATION_YEAR = 13
 FIRST_DOWNLOAD_LINK = 37
 SECOND_DOWNLOAD_LINK = 38
 SHEET_NAME = "0"
@@ -21,13 +27,27 @@ def generator(filename: str, amount: int):
             i += 1
             if i >= amount + 1:
                 break
-        downloader([row[BRNUM], row[FIRST_DOWNLOAD_LINK], row[SECOND_DOWNLOAD_LINK]])
+        downloader(
+            [
+                row[BRNUM],
+                row[FIRST_DOWNLOAD_LINK],
+                row[SECOND_DOWNLOAD_LINK],
+                row[NAME],
+                row[SECTOR],
+                row[COUNTRY],
+                row[DATE_ADDED],
+                row[TITLE],
+                row[PUBLICATION_YEAR],
+            ]
+        )
 
 
 def downloader(row):
     url = row[1]
     downloaded = False
     savefile = f"{row[0]}.pdf"
+    error = ""
+    error2 = ""
     try:
         urllib.request.urlretrieve(url, savefile)
         downloaded = True
@@ -37,6 +57,7 @@ def downloader(row):
         ConnectionResetError,
         Exception,
     ) as e:
+        error = f"{e}"
         url = row[2]
         if url != "":
             try:
@@ -49,18 +70,52 @@ def downloader(row):
                 ConnectionResetError,
                 Exception,
             ) as e2:
-                print(e2)
-        print(e)
-    writeRapport(row[0], downloaded)
+                error2 = f"{e2}"
+        else:
+            error2 = "No link"
+    writeRapport(
+        row[0],
+        downloaded,
+        row[3],
+        row[4],
+        row[5],
+        row[6],
+        row[7],
+        row[8],
+        error,
+        error2,
+    )
 
 
-def writeRapport(brnum: int, downloaded: bool):
+def writeRapport(
+    brnum: int,
+    downloaded: bool,
+    name: str,
+    sector: str,
+    country: str,
+    dateAdded: str,
+    title: str,
+    publicationYear: int,
+    error: str,
+    error2: str,
+):
     global wbSave
     sheet = wbSave.active
     download = "not downloaded"
     if downloaded:
         download = "downloaded"
-    info = [brnum, download]
+    info = [
+        brnum,
+        download,
+        name,
+        sector,
+        country,
+        dateAdded,
+        title,
+        publicationYear,
+        error,
+        error2,
+    ]
     sheet.append(info)
 
 
@@ -69,15 +124,27 @@ def rapportSetup():
     wbSave = openpyxl.Workbook()
     sheet = wbSave.active
     sheet.title = "Rapport"
+    info = [
+        "BRNum",
+        "Download Status",
+        "Name",
+        "Sector",
+        "Country",
+        "Date Added",
+        "Title",
+        "Publication Year",
+        "Primary Link Error",
+        "Secondary Link Error",
+    ]
+    sheet.append(info)
 
 
 def rapportSave():
     global wbSave
-    wbSave.save("Rapport.xlsx")
+    wbSave.save("Metadata2017_2020.xlsx")
 
 
 if __name__ == "__main__":
-    print(openpyxl.__version__)
     amount = -1
     if sys.argv:
         amount = int(sys.argv.pop())
