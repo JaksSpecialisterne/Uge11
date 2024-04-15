@@ -77,6 +77,7 @@ def rapportSave():
 
 
 if __name__ == "__main__":
+    print(openpyxl.__version__)
     amount = -1
     if sys.argv:
         amount = int(sys.argv.pop())
