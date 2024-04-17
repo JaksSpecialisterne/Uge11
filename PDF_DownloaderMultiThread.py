@@ -1,6 +1,7 @@
 import sys, urllib, openpyxl, socket, time
 import urllib.request
 import urllib.error
+import concurrent.futures
 from itertools import islice
 
 BRNUM = 0
@@ -20,16 +21,18 @@ TIME_TXT = "Multithread/elapsedTime.txt"
 timeList = []
 
 
-def generator(filename: str, amount: int):
+def generator(filename: str, amount: int, workers: int):
     wb = openpyxl.load_workbook(filename=filename, read_only=True)
     ws = wb[SHEET_NAME]
     i = 0
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
     for row in islice(ws.iter_rows(values_only=True), 1, None):
         if amount > 0:
             i += 1
             if i >= amount + 1:
                 break
-        downloader(
+        pool.submit(
+            downloader,
             [
                 row[BRNUM],
                 row[FIRST_DOWNLOAD_LINK],
@@ -40,14 +43,15 @@ def generator(filename: str, amount: int):
                 row[DATE_ADDED],
                 row[TITLE],
                 row[PUBLICATION_YEAR],
-            ]
+            ],
         )
+    pool.shutdown(wait=True)
 
 
 def downloader(row):
     url = row[1]
     downloaded = False
-    savefile = f"Singlethread/{row[0]}.pdf"
+    savefile = f"Multithread/{row[0]}.pdf"
     error = ""
     error2 = ""
 
@@ -175,6 +179,11 @@ def writeTime(downloadTime, writeTime):
 
 
 if __name__ == "__main__":
+
+    workers = 5
+    if sys.argv:
+        workers = int(sys.argv.pop())
+
     amount = -1
     if sys.argv:
         amount = int(sys.argv.pop())
@@ -183,13 +192,14 @@ if __name__ == "__main__":
     if sys.argv:
         filename = sys.argv.pop()
 
+    print(f"worker: {workers}")
     print(f"amount: {amount}")
     print(f"filename: {filename}")
 
     if filename != "":
         rapportSetup()
         start = time.time()
-        generator(filename, amount)
+        generator(filename, amount, workers)
         end = time.time()
         time2 = rapportSave()
         writeTime(end - start, time2)
