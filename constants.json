@@ -1,0 +1,16 @@
+{
+    "BRNUM": 0,
+    "FIRST_DOWNLOAD_LINK": 37,
+    "SECOND_DOWNLOAD_LINK": 38,
+    "NAME": 2,
+    "SECTOR": 7,
+    "COUNTRY": 8,
+    "DATE_ADDED": 11,
+    "TITLE": 12,
+    "PUBLICATION_YEAR": 13,
+    
+    "SHEET_NAME": "0",
+
+    "TIME_TXT_SINGLE": "Singlethread/elapsedTime.txt",
+    "TIME_TXT_MULTI": "Multithread/elapsedTime.txt"
+}

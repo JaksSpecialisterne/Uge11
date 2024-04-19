@@ -1,64 +1,49 @@
-import sys, urllib, openpyxl, socket, time
-import urllib.request
-import urllib.error
-import concurrent.futures
+import sys, urllib, openpyxl, socket, time, urllib.request, urllib.error, concurrent.futures, json
 from itertools import islice
+from operator import itemgetter
 
-BRNUM = 0
-NAME = 2
-SECTOR = 7
-COUNTRY = 8
-DATE_ADDED = 11
-TITLE = 12
-PUBLICATION_YEAR = 13
-FIRST_DOWNLOAD_LINK = 37
-SECOND_DOWNLOAD_LINK = 38
 SHEET_NAME = "0"
+TIME_TXT = "Multithread/elapsedTime.txt"
+
+timeList = []
 
 wbSave = None
 
-TIME_TXT = "Multithread/elapsedTime.txt"
-timeList = []
 
-
-def generator(filename: str, amount: int, workers: int):
+def generator(filename: str, amount: int, workers: int, timeoutTime: int):
     wb = openpyxl.load_workbook(filename=filename, read_only=True)
     ws = wb[SHEET_NAME]
     i = 0
+
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
-    for row in islice(ws.iter_rows(values_only=True), 1, None):
-        if amount > 0:
-            i += 1
-            if i >= amount + 1:
-                break
-        pool.submit(
-            downloader,
-            [
-                row[BRNUM],
-                row[FIRST_DOWNLOAD_LINK],
-                row[SECOND_DOWNLOAD_LINK],
-                row[NAME],
-                row[SECTOR],
-                row[COUNTRY],
-                row[DATE_ADDED],
-                row[TITLE],
-                row[PUBLICATION_YEAR],
-            ],
-        )
+    with open("constants.json", "r") as f:
+        data = json.load(f)
+        for row in islice(ws.iter_rows(values_only=True), 1, None):
+            if amount > 0:
+                i += 1
+                if i >= amount + 1:
+                    break
+            con = list(data.values())
+            row2 = itemgetter(*con[0:9])(row)
+            pool.submit(
+                downloader,
+                row2,
+                timeoutTime,
+            )
     pool.shutdown(wait=True)
 
 
-def downloader(row):
+def downloader(row, timeoutTime):
     url = row[1]
     downloaded = False
     savefile = f"Multithread/{row[0]}.pdf"
     error = ""
     error2 = ""
+    timeElapsed = 0.0
 
-    socket.setdefaulttimeout(15)
+    socket.setdefaulttimeout(timeoutTime)
 
     start = time.time()
-
     try:
         urllib.request.urlretrieve(url, savefile)
         downloaded = True
@@ -66,6 +51,7 @@ def downloader(row):
         urllib.error.HTTPError,
         urllib.error.URLError,
         ConnectionResetError,
+        socket.error,
         Exception,
     ) as e:
         error = f"{e}"
@@ -79,6 +65,7 @@ def downloader(row):
                 urllib.error.HTTPError,
                 urllib.error.URLError,
                 ConnectionResetError,
+                socket.error,
                 Exception,
             ) as e2:
                 error2 = f"{e2}"
@@ -86,36 +73,37 @@ def downloader(row):
             error2 = "No link"
 
     end = time.time()
-    time1 = end - start
+    if downloaded:
+        timeElapsed = end - start
 
     writeRapport(
         row[0],
         downloaded,
+        error,
+        error2,
         row[3],
         row[4],
         row[5],
         row[6],
         row[7],
         row[8],
-        error,
-        error2,
     )
 
     global timeList
-    timeList.append([row[0], time1])
+    timeList.append([row[0], timeElapsed])
 
 
 def writeRapport(
     brnum: int,
     downloaded: bool,
+    error: str,
+    error2: str,
     name: str,
     sector: str,
     country: str,
     dateAdded: str,
     title: str,
     publicationYear: int,
-    error: str,
-    error2: str,
 ):
     global wbSave
     sheet = wbSave.active
@@ -157,15 +145,12 @@ def rapportSetup():
     sheet.append(info)
 
 
-def rapportSave() -> float:
-    start = time.time()
+def rapportSave():
     global wbSave
     wbSave.save("Multithread/Metadata2017_2020.xlsx")
-    end = time.time()
-    return end - start
 
 
-def writeTime(downloadTime, writeTime):
+def writeTime(downloadTime):
     global timeList
     file = open(TIME_TXT, "w")
     for entry in timeList:
@@ -174,24 +159,17 @@ def writeTime(downloadTime, writeTime):
         else:
             file.write(f"BRNum: {entry[0]}, download time elapsed: {entry[1]}\n")
     file.write(f"Total download time elapsed: {downloadTime}\n")
-    file.write(f"Total write time elapsed: {writeTime}")
     file.close()
 
 
 if __name__ == "__main__":
 
-    workers = 5
-    if sys.argv:
-        workers = int(sys.argv.pop())
+    timeoutTime = int(sys.argv.pop())
+    workers = int(sys.argv.pop())
+    amount = int(sys.argv.pop())
+    filename = sys.argv.pop()
 
-    amount = -1
-    if sys.argv:
-        amount = int(sys.argv.pop())
-
-    filename = ""
-    if sys.argv:
-        filename = sys.argv.pop()
-
+    print(f"timeoutTime: {timeoutTime}")
     print(f"worker: {workers}")
     print(f"amount: {amount}")
     print(f"filename: {filename}")
@@ -199,7 +177,7 @@ if __name__ == "__main__":
     if filename != "":
         rapportSetup()
         start = time.time()
-        generator(filename, amount, workers)
+        generator(filename, amount, workers, timeoutTime)
         end = time.time()
-        time2 = rapportSave()
-        writeTime(end - start, time2)
+        rapportSave()
+        writeTime(end - start)

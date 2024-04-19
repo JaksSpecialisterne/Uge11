@@ -1,6 +1,4 @@
-import sys, urllib, openpyxl, socket, time
-import urllib.request
-import urllib.error
+import sys, urllib, openpyxl, socket, time, urllib.request, urllib.error
 from itertools import islice
 
 BRNUM = 0
@@ -14,10 +12,10 @@ FIRST_DOWNLOAD_LINK = 37
 SECOND_DOWNLOAD_LINK = 38
 SHEET_NAME = "0"
 
-wbSave = None
-
-TIME_TXT = "Multithread/elapsedTime.txt"
+TIME_TXT = "Singlethread/elapsedTime.txt"
 timeList = []
+
+wbSave = None
 
 
 def generator(filename: str, amount: int):
@@ -153,15 +151,12 @@ def rapportSetup():
     sheet.append(info)
 
 
-def rapportSave() -> float:
-    start = time.time()
+def rapportSave():
     global wbSave
-    wbSave.save("Multithread/Metadata2017_2020.xlsx")
-    end = time.time()
-    return end - start
+    wbSave.save("Singlethread/Metadata2017_2020.xlsx")
 
 
-def writeTime(downloadTime, writeTime):
+def writeTime(downloadTime):
     global timeList
     file = open(TIME_TXT, "w")
     for entry in timeList:
@@ -170,18 +165,16 @@ def writeTime(downloadTime, writeTime):
         else:
             file.write(f"BRNum: {entry[0]}, download time elapsed: {entry[1]}\n")
     file.write(f"Total download time elapsed: {downloadTime}\n")
-    file.write(f"Total write time elapsed: {writeTime}")
     file.close()
 
 
 if __name__ == "__main__":
+
     amount = -1
-    if sys.argv:
+    if len(sys.argv) == 3:
         amount = int(sys.argv.pop())
 
-    filename = ""
-    if sys.argv:
-        filename = sys.argv.pop()
+    filename = sys.argv.pop()
 
     print(f"amount: {amount}")
     print(f"filename: {filename}")
@@ -191,5 +184,5 @@ if __name__ == "__main__":
         start = time.time()
         generator(filename, amount)
         end = time.time()
-        time2 = rapportSave()
-        writeTime(end - start, time2)
+        rapportSave()
+        writeTime(end - start)
